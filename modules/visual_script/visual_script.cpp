@@ -30,8 +30,8 @@
 
 #include "visual_script.h"
 
-#include "os/os.h"
-#include "project_settings.h"
+#include "core/os/os.h"
+#include "core/project_settings.h"
 #include "scene/main/node.h"
 #include "visual_script_nodes.h"
 
@@ -48,20 +48,22 @@ bool VisualScriptNode::is_breakpoint() const {
 void VisualScriptNode::_notification(int p_what) {
 
 	if (p_what == NOTIFICATION_POSTINITIALIZE) {
+		_update_input_ports();
+	}
+}
 
-		int dvc = get_input_value_port_count();
-		for (int i = 0; i < dvc; i++) {
-			Variant::Type expected = get_input_value_port_info(i).type;
-			Variant::CallError ce;
-			default_input_values.push_back(Variant::construct(expected, NULL, 0, ce, false));
-		}
+void VisualScriptNode::_update_input_ports() {
+	default_input_values.resize(MAX(default_input_values.size(), get_input_value_port_count())); //let it grow as big as possible, we don't want to lose values on resize
+	int port_count = get_input_value_port_count();
+	for (int i = 0; i < port_count; i++) {
+		Variant::Type expected = get_input_value_port_info(i).type;
+		Variant::CallError ce;
+		set_default_input_value(i, Variant::construct(expected, NULL, 0, ce, false));
 	}
 }
 
 void VisualScriptNode::ports_changed_notify() {
-
-	default_input_values.resize(MAX(default_input_values.size(), get_input_value_port_count())); //let it grow as big as possible, we don't want to lose values on resize
-
+	_update_input_ports();
 	emit_signal("ports_changed");
 }
 
@@ -2415,7 +2417,7 @@ void VisualScriptLanguage::make_template(const String &p_class_name, const Strin
 	script->set_instance_base_type(p_base_class_name);
 }
 
-bool VisualScriptLanguage::validate(const String &p_script, int &r_line_error, int &r_col_error, String &r_test_error, const String &p_path, List<String> *r_functions, Set<int> *r_safe_lines) const {
+bool VisualScriptLanguage::validate(const String &p_script, int &r_line_error, int &r_col_error, String &r_test_error, const String &p_path, List<String> *r_functions, List<ScriptLanguage::Warning> *r_warnings, Set<int> *r_safe_lines) const {
 
 	return false;
 }

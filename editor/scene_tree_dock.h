@@ -75,6 +75,7 @@ class SceneTreeDock : public VBoxContainer {
 		TOOL_ERASE,
 		TOOL_COPY_NODE_PATH,
 		TOOL_BUTTON_MAX,
+		TOOL_OPEN_DOCUMENTATION,
 		TOOL_SCENE_EDITABLE_CHILDREN,
 		TOOL_SCENE_USE_PLACEHOLDER,
 		TOOL_SCENE_MAKE_LOCAL,
@@ -86,6 +87,7 @@ class SceneTreeDock : public VBoxContainer {
 		TOOL_CREATE_2D_SCENE,
 		TOOL_CREATE_3D_SCENE,
 		TOOL_CREATE_USER_INTERFACE,
+		TOOL_CREATE_FAVORITE,
 
 	};
 
@@ -120,6 +122,7 @@ class SceneTreeDock : public VBoxContainer {
 	ScriptCreateDialog *script_create_dialog;
 	AcceptDialog *accept;
 	ConfirmationDialog *delete_dialog;
+	ConfirmationDialog *editable_instance_remove_dialog;
 
 	ReparentDialog *reparent_dialog;
 	EditorFileDialog *file;
@@ -141,6 +144,7 @@ class SceneTreeDock : public VBoxContainer {
 	EditorNode *editor;
 
 	VBoxContainer *create_root_dialog;
+	String selected_favorite_root;
 
 	void _add_children_to_popup(Object *p_obj, int p_depth);
 
@@ -166,6 +170,8 @@ class SceneTreeDock : public VBoxContainer {
 	void _script_created(Ref<Script> p_script);
 
 	void _delete_confirm();
+
+	void _toggle_editable_children();
 
 	void _node_prerenamed(Node *p_node, const String &p_new_name);
 
@@ -200,6 +206,9 @@ class SceneTreeDock : public VBoxContainer {
 
 	void _remote_tree_selected();
 	void _local_tree_selected();
+
+	void _update_create_root_dialog();
+	void _favorite_root_selected(const String &p_class);
 
 protected:
 	void _notification(int p_what);

@@ -29,10 +29,10 @@
 /*************************************************************************/
 
 #include "popup_menu.h"
-#include "os/input.h"
-#include "os/keyboard.h"
-#include "print_string.h"
-#include "translation.h"
+#include "core/os/input.h"
+#include "core/os/keyboard.h"
+#include "core/print_string.h"
+#include "core/translation.h"
 
 String PopupMenu::_get_accel_text(int p_item) const {
 
@@ -529,6 +529,11 @@ void PopupMenu::_notification(int p_what) {
 				ofs.y += h;
 			}
 
+		} break;
+		case MainLoop::NOTIFICATION_WM_FOCUS_OUT: {
+
+			if (hide_on_window_lose_focus)
+				hide();
 		} break;
 		case NOTIFICATION_MOUSE_ENTER: {
 
@@ -1044,10 +1049,8 @@ void PopupMenu::activate_item(int p_item) {
 	ERR_FAIL_INDEX(p_item, items.size());
 	ERR_FAIL_COND(items[p_item].separator);
 	int id = items[p_item].ID >= 0 ? items[p_item].ID : p_item;
-	emit_signal("id_pressed", id);
-	emit_signal("index_pressed", p_item);
 
-	//hide all parent PopupMenue's
+	//hide all parent PopupMenus
 	Node *next = get_parent();
 	PopupMenu *pop = Object::cast_to<PopupMenu>(next);
 	while (pop) {
@@ -1071,16 +1074,23 @@ void PopupMenu::activate_item(int p_item) {
 	// Hides popup by default; unless otherwise specified
 	// by using set_hide_on_item_selection and set_hide_on_checkable_item_selection
 
+	bool need_hide = true;
+
 	if (items[p_item].checkable_type) {
 		if (!hide_on_checkable_item_selection)
-			return;
+			need_hide = false;
 	} else if (0 < items[p_item].max_states) {
 		if (!hide_on_multistate_item_selection)
-			return;
+			need_hide = false;
 	} else if (!hide_on_item_selection)
-		return;
+		need_hide = false;
 
-	hide();
+	emit_signal("id_pressed", id);
+	emit_signal("index_pressed", p_item);
+
+	if (need_hide) {
+		hide();
+	}
 }
 
 void PopupMenu::remove_item(int p_idx) {
@@ -1093,6 +1103,7 @@ void PopupMenu::remove_item(int p_idx) {
 
 	items.remove(p_idx);
 	update();
+	minimum_size_changed();
 }
 
 void PopupMenu::add_separator(const String &p_text) {
@@ -1249,6 +1260,16 @@ float PopupMenu::get_submenu_popup_delay() const {
 	return submenu_timer->get_wait_time();
 }
 
+void PopupMenu::set_hide_on_window_lose_focus(bool p_enabled) {
+
+	hide_on_window_lose_focus = p_enabled;
+}
+
+bool PopupMenu::is_hide_on_window_lose_focus() const {
+
+	return hide_on_window_lose_focus;
+}
+
 String PopupMenu::get_tooltip(const Point2 &p_pos) const {
 
 	int over = _get_mouse_over(p_pos);
@@ -1353,6 +1374,10 @@ void PopupMenu::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_submenu_popup_delay", "seconds"), &PopupMenu::set_submenu_popup_delay);
 	ClassDB::bind_method(D_METHOD("get_submenu_popup_delay"), &PopupMenu::get_submenu_popup_delay);
+
+	ClassDB::bind_method(D_METHOD("set_hide_on_window_lose_focus", "enable"), &PopupMenu::set_hide_on_window_lose_focus);
+	ClassDB::bind_method(D_METHOD("is_hide_on_window_lose_focus"), &PopupMenu::is_hide_on_window_lose_focus);
+
 	ClassDB::bind_method(D_METHOD("_submenu_timeout"), &PopupMenu::_submenu_timeout);
 
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "items", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NOEDITOR | PROPERTY_USAGE_INTERNAL), "_set_items", "_get_items");

@@ -30,10 +30,10 @@
 
 #include "global_constants.h"
 
-#include "object.h"
-#include "os/input_event.h"
-#include "os/keyboard.h"
-#include "variant.h"
+#include "core/object.h"
+#include "core/os/input_event.h"
+#include "core/os/keyboard.h"
+#include "core/variant.h"
 
 struct _GlobalConstant {
 
@@ -532,6 +532,7 @@ void register_global_constants() {
 	BIND_GLOBAL_ENUM_CONSTANT(PROPERTY_HINT_GLOBAL_DIR);
 	BIND_GLOBAL_ENUM_CONSTANT(PROPERTY_HINT_RESOURCE_TYPE);
 	BIND_GLOBAL_ENUM_CONSTANT(PROPERTY_HINT_MULTILINE_TEXT);
+	BIND_GLOBAL_ENUM_CONSTANT(PROPERTY_HINT_PLACEHOLDER_TEXT);
 	BIND_GLOBAL_ENUM_CONSTANT(PROPERTY_HINT_COLOR_NO_ALPHA);
 	BIND_GLOBAL_ENUM_CONSTANT(PROPERTY_HINT_IMAGE_COMPRESS_LOSSY);
 	BIND_GLOBAL_ENUM_CONSTANT(PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS);

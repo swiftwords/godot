@@ -30,12 +30,13 @@
 
 #include "ustring.h"
 
-#include "color.h"
-#include "math_funcs.h"
-#include "os/memory.h"
-#include "print_string.h"
-#include "ucaps.h"
-#include "variant.h"
+#include "core/color.h"
+#include "core/math/math_funcs.h"
+#include "core/os/memory.h"
+#include "core/print_string.h"
+#include "core/translation.h"
+#include "core/ucaps.h"
+#include "core/variant.h"
 
 #include "thirdparty/misc/md5.h"
 #include "thirdparty/misc/sha256.h"
@@ -148,7 +149,7 @@ void String::copy_from(const char *p_cstr) {
 	}
 }
 
-void String::copy_from(const CharType *p_cstr, int p_clip_to) {
+void String::copy_from(const CharType *p_cstr, const int p_clip_to) {
 
 	if (!p_cstr) {
 
@@ -158,11 +159,8 @@ void String::copy_from(const CharType *p_cstr, int p_clip_to) {
 
 	int len = 0;
 	const CharType *ptr = p_cstr;
-	while (*(ptr++) != 0)
+	while ((p_clip_to < 0 || len < p_clip_to) && *(ptr++) != 0)
 		len++;
-
-	if (p_clip_to >= 0 && len > p_clip_to)
-		len = p_clip_to;
 
 	if (len == 0) {
 
@@ -177,7 +175,7 @@ void String::copy_from(const CharType *p_cstr, int p_clip_to) {
 // p_char != NULL
 // p_length > 0
 // p_length <= p_char strlen
-void String::copy_from_unchecked(const CharType *p_char, int p_length) {
+void String::copy_from_unchecked(const CharType *p_char, const int p_length) {
 	resize(p_length + 1);
 	set(p_length, 0);
 
@@ -588,6 +586,8 @@ String String::camelcase_to_underscore(bool lowercase) const {
 		bool is_upper = cstr[i] >= A && cstr[i] <= Z;
 		bool is_number = cstr[i] >= '0' && cstr[i] <= '9';
 		bool are_next_2_lower = false;
+		bool is_next_lower = false;
+		bool is_next_number = false;
 		bool was_precedent_upper = cstr[i - 1] >= A && cstr[i - 1] <= Z;
 		bool was_precedent_number = cstr[i - 1] >= '0' && cstr[i - 1] <= '9';
 
@@ -595,7 +595,18 @@ String String::camelcase_to_underscore(bool lowercase) const {
 			are_next_2_lower = cstr[i + 1] >= a && cstr[i + 1] <= z && cstr[i + 2] >= a && cstr[i + 2] <= z;
 		}
 
-		bool should_split = ((is_upper && !was_precedent_upper && !was_precedent_number) || (was_precedent_upper && is_upper && are_next_2_lower) || (is_number && !was_precedent_number));
+		if (i + 1 < this->size()) {
+			is_next_lower = cstr[i + 1] >= a && cstr[i + 1] <= z;
+			is_next_number = cstr[i + 1] >= '0' && cstr[i + 1] <= '9';
+		}
+
+		const bool a = is_upper && !was_precedent_upper && !was_precedent_number;
+		const bool b = was_precedent_upper && is_upper && are_next_2_lower;
+		const bool c = is_number && !was_precedent_number;
+		const bool can_break_number_letter = is_number && !was_precedent_number && is_next_lower;
+		const bool can_break_letter_number = !is_number && was_precedent_number && (is_next_lower || is_next_number);
+
+		bool should_split = a || b || c || can_break_number_letter || can_break_letter_number;
 		if (should_split) {
 			new_string += this->substr(start_index, i - start_index) + "_";
 			start_index = i;
@@ -1343,7 +1354,7 @@ String String::utf8(const char *p_utf8, int p_len) {
 
 bool String::parse_utf8(const char *p_utf8, int p_len) {
 
-#define _UNICERROR(m_err) print_line("unicode error: " + String(m_err));
+#define _UNICERROR(m_err) print_line("Unicode error: " + String(m_err));
 
 	String aux;
 
@@ -1830,8 +1841,8 @@ static double built_in_strtod(const C *string, /* A decimal ASCII floating-point
 	int sign, expSign = false;
 	double fraction, dblExp;
 	const double *d;
-	register const C *p;
-	register int c;
+	const C *p;
+	int c;
 	int exp = 0; /* Exponent read from "EX" field. */
 	int fracExp = 0; /* Exponent that derives from the fractional
 				 * part. Under normal circumstances, it is
@@ -2791,7 +2802,11 @@ String String::format(const Variant &values, String placeholder) const {
 					val = val.substr(1, val.length() - 2);
 				}
 
-				new_string = new_string.replace(placeholder.replace("_", i_as_str), val);
+				if (placeholder.find("_") > -1) {
+					new_string = new_string.replace(placeholder.replace("_", i_as_str), val);
+				} else {
+					new_string = new_string.replace_first(placeholder, val);
+				}
 			}
 		}
 	} else if (values.get_type() == Variant::DICTIONARY) {
@@ -3090,7 +3105,7 @@ String String::simplify_path() const {
 	} else if (s.begins_with("user://")) {
 
 		drive = "user://";
-		s = s.substr(6, s.length());
+		s = s.substr(7, s.length());
 	} else if (s.begins_with("/") || s.begins_with("\\")) {
 
 		drive = s.substr(0, 1);
@@ -3881,8 +3896,6 @@ String String::percent_decode() const {
 		pe += c;
 	}
 
-	pe += '0';
-
 	return String::utf8(pe.ptr());
 }
 
@@ -4204,8 +4217,6 @@ String String::unquote() const {
 
 	return substr(1, length() - 2);
 }
-
-#include "translation.h"
 
 #ifdef TOOLS_ENABLED
 String TTR(const String &p_text) {

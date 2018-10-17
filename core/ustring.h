@@ -28,16 +28,16 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef RSTRING_H
-#define RSTRING_H
+#ifndef USTRING_H
+#define USTRING_H
 
-#include "array.h"
-#include "cowdata.h"
-#include "typedefs.h"
-#include "vector.h"
+#include "core/array.h"
+#include "core/cowdata.h"
+#include "core/typedefs.h"
+#include "core/vector.h"
 
 /**
-	@author red <red@killy>
+	@author Juan Linietsky <reduzio@gmail.com>
 */
 
 class CharString {
@@ -84,9 +84,9 @@ class String {
 	CowData<CharType> _cowdata;
 
 	void copy_from(const char *p_cstr);
-	void copy_from(const CharType *p_cstr, int p_clip_to = -1);
+	void copy_from(const CharType *p_cstr, const int p_clip_to = -1);
 	void copy_from(const CharType &p_char);
-	void copy_from_unchecked(const CharType *p_char, int p_length);
+	void copy_from_unchecked(const CharType *p_char, const int p_length);
 	bool _base_is_subsequence_of(const String &p_string, bool case_insensitive) const;
 
 public:
@@ -366,4 +366,4 @@ String RTR(const String &);
 bool is_symbol(CharType c);
 bool select_word(const String &p_s, int p_col, int &r_beg, int &r_end);
 
-#endif
+#endif // USTRING_H

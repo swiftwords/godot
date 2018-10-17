@@ -202,9 +202,7 @@ private:
 	real_t angularDamp;
 	bool can_sleep;
 	bool omit_forces_integration;
-
-	PhysicsServer::CombineMode restitution_combine_mode;
-	PhysicsServer::CombineMode friction_combine_mode;
+	bool can_integrate_forces;
 
 	Vector<CollisionData> collisions;
 	// these parameters are used to avoid vector resize
@@ -219,7 +217,6 @@ private:
 	int countGravityPointSpaces;
 	bool isScratchedSpaceOverrideModificator;
 
-	bool isTransformChanged;
 	bool previousActiveState; // Last check state
 
 	ForceIntegrationCallback *force_integration_callback;
@@ -230,20 +227,22 @@ public:
 
 	void init_kinematic_utilities();
 	void destroy_kinematic_utilities();
-	_FORCE_INLINE_ class KinematicUtilities *get_kinematic_utilities() const { return kinematic_utilities; }
+	_FORCE_INLINE_ KinematicUtilities *get_kinematic_utilities() const { return kinematic_utilities; }
 
 	_FORCE_INLINE_ btRigidBody *get_bt_rigid_body() { return btBody; }
 
+	virtual void main_shape_changed();
 	virtual void reload_body();
 	virtual void set_space(SpaceBullet *p_space);
 
 	virtual void dispatch_callbacks();
 	void set_force_integration_callback(ObjectID p_id, const StringName &p_method, const Variant &p_udata = Variant());
-	void scratch();
 	void scratch_space_override_modificator();
 
 	virtual void on_collision_filters_change();
 	virtual void on_collision_checker_start();
+	virtual void on_collision_checker_end();
+
 	void set_max_collisions_detection(int p_maxCollisionsDetection) {
 		maxCollisionsDetection = p_maxCollisionsDetection;
 		collisions.resize(p_maxCollisionsDetection);
@@ -301,16 +300,10 @@ public:
 	void set_angular_velocity(const Vector3 &p_velocity);
 	Vector3 get_angular_velocity() const;
 
-	void set_combine_mode(const PhysicsServer::BodyParameter p_param, const PhysicsServer::CombineMode p_mode);
-	PhysicsServer::CombineMode get_combine_mode(PhysicsServer::BodyParameter p_param) const;
-
-	_FORCE_INLINE_ PhysicsServer::CombineMode get_restitution_combine_mode() const { return restitution_combine_mode; }
-	_FORCE_INLINE_ PhysicsServer::CombineMode get_friction_combine_mode() const { return friction_combine_mode; }
-
 	virtual void set_transform__bullet(const btTransform &p_global_transform);
 	virtual const btTransform &get_transform__bullet() const;
 
-	virtual void on_shapes_changed();
+	virtual void reload_shapes();
 
 	virtual void on_enter_area(AreaBullet *p_area);
 	virtual void on_exit_area(AreaBullet *p_area);
@@ -318,6 +311,8 @@ public:
 
 	/// Kinematic
 	void reload_kinematic_shapes();
+
+	virtual void notify_transform_changed();
 
 private:
 	void _internal_set_mass(real_t p_mass);

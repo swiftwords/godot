@@ -31,13 +31,13 @@
 #ifndef NODE_H
 #define NODE_H
 
-#include "class_db.h"
-#include "map.h"
-#include "node_path.h"
-#include "object.h"
-#include "project_settings.h"
+#include "core/class_db.h"
+#include "core/map.h"
+#include "core/node_path.h"
+#include "core/object.h"
+#include "core/project_settings.h"
+#include "core/script_language.h"
 #include "scene/main/scene_tree.h"
-#include "script_language.h"
 
 class Viewport;
 class SceneState;
@@ -72,7 +72,7 @@ public:
 
 	struct ComparatorWithPriority {
 
-		bool operator()(const Node *p_a, const Node *p_b) const { return p_b->has_priority_higher_than(p_a) || p_b->is_greater_than(p_a); }
+		bool operator()(const Node *p_a, const Node *p_b) const { return p_b->data.process_priority == p_a->data.process_priority ? p_b->is_greater_than(p_a) : p_b->data.process_priority > p_a->data.process_priority; }
 	};
 
 private:
@@ -166,6 +166,7 @@ private:
 	void _propagate_enter_tree();
 	void _propagate_ready();
 	void _propagate_exit_tree();
+	void _propagate_after_exit_tree();
 	void _propagate_validate_owner();
 	void _print_stray_nodes();
 	void _propagate_pause_owner(Node *p_owner);
@@ -256,6 +257,8 @@ public:
 	Node *get_node_and_resource(const NodePath &p_path, RES &r_res, Vector<StringName> &r_leftover_subpath, bool p_last_is_property = true) const;
 
 	Node *get_parent() const;
+	Node *find_parent(const String &p_mask) const;
+
 	_FORCE_INLINE_ SceneTree *get_tree() const {
 		ERR_FAIL_COND_V(!data.tree, NULL);
 		return data.tree;
@@ -265,7 +268,6 @@ public:
 
 	bool is_a_parent_of(const Node *p_node) const;
 	bool is_greater_than(const Node *p_node) const;
-	bool has_priority_higher_than(const Node *p_node) const;
 
 	NodePath get_path() const;
 	NodePath get_path_to(const Node *p_node) const;
@@ -364,6 +366,7 @@ public:
 	void set_pause_mode(PauseMode p_mode);
 	PauseMode get_pause_mode() const;
 	bool can_process() const;
+	bool can_process_notification(int p_what) const;
 
 	void request_ready();
 

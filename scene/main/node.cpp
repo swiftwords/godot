@@ -31,10 +31,10 @@
 #include "node.h"
 
 #include "core/core_string_names.h"
+#include "core/io/resource_loader.h"
+#include "core/message_queue.h"
+#include "core/print_string.h"
 #include "instance_placeholder.h"
-#include "io/resource_loader.h"
-#include "message_queue.h"
-#include "print_string.h"
 #include "scene/resources/packed_scene.h"
 #include "scene/scene_string_names.h"
 #include "viewport.h"
@@ -238,6 +238,16 @@ void Node::_propagate_enter_tree() {
 	// enter groups
 }
 
+void Node::_propagate_after_exit_tree() {
+
+	data.blocked++;
+	for (int i = 0; i < data.children.size(); i++) {
+		data.children[i]->_propagate_after_exit_tree();
+	}
+	data.blocked--;
+	emit_signal(SceneStringNames::get_singleton()->tree_exited);
+}
+
 void Node::_propagate_exit_tree() {
 
 	//block while removing children
@@ -299,8 +309,6 @@ void Node::_propagate_exit_tree() {
 	data.ready_notified = false;
 	data.tree = NULL;
 	data.depth = -1;
-
-	emit_signal(SceneStringNames::get_singleton()->tree_exited);
 }
 
 void Node::move_child(Node *p_child, int p_pos) {
@@ -723,6 +731,17 @@ const Map<StringName, MultiplayerAPI::RPCMode>::Element *Node::get_node_rpc_mode
 
 const Map<StringName, MultiplayerAPI::RPCMode>::Element *Node::get_node_rset_mode(const StringName &p_property) {
 	return data.rpc_properties.find(p_property);
+}
+
+bool Node::can_process_notification(int p_what) const {
+	switch (p_what) {
+		case NOTIFICATION_PHYSICS_PROCESS: return data.physics_process;
+		case NOTIFICATION_PROCESS: return data.idle_process;
+		case NOTIFICATION_INTERNAL_PROCESS: return data.idle_process_internal;
+		case NOTIFICATION_INTERNAL_PHYSICS_PROCESS: return data.physics_process_internal;
+	}
+
+	return true;
 }
 
 bool Node::can_process() const {
@@ -1196,6 +1215,10 @@ void Node::remove_child(Node *p_child) {
 
 	// validate owner
 	p_child->_propagate_validate_owner();
+
+	if (data.inside_tree) {
+		p_child->_propagate_after_exit_tree();
+	}
 }
 
 int Node::get_child_count() const {
@@ -1325,6 +1348,19 @@ Node *Node::get_parent() const {
 	return data.parent;
 }
 
+Node *Node::find_parent(const String &p_mask) const {
+
+	Node *p = data.parent;
+	while (p) {
+
+		if (p->data.name.operator String().match(p_mask))
+			return p;
+		p = p->data.parent;
+	}
+
+	return NULL;
+}
+
 bool Node::is_a_parent_of(const Node *p_node) const {
 
 	ERR_FAIL_NULL_V(p_node, false);
@@ -1402,11 +1438,6 @@ bool Node::is_greater_than(const Node *p_node) const {
 	}
 
 	return res;
-}
-
-bool Node::has_priority_higher_than(const Node *p_node) const {
-	ERR_FAIL_NULL_V(p_node, false);
-	return data.process_priority > p_node->data.process_priority;
 }
 
 void Node::get_owned_by(Node *p_by, List<Node *> *p_owned) {
@@ -2076,9 +2107,7 @@ void Node::_duplicate_and_reown(Node *p_new_parent, const Map<Node *, Node *> &p
 	} else {
 
 		Object *obj = ClassDB::instance(get_class());
-		if (!obj) {
-			print_line("could not duplicate: " + String(get_class()));
-		}
+		ERR_EXPLAIN("Node: Could not duplicate: " + String(get_class()));
 		ERR_FAIL_COND(!obj);
 		node = Object::cast_to<Node>(obj);
 		if (!node)
@@ -2099,6 +2128,12 @@ void Node::_duplicate_and_reown(Node *p_new_parent, const Map<Node *, Node *> &p
 
 		node->set(name, value);
 	}
+
+	List<GroupInfo> groups;
+	get_groups(&groups);
+
+	for (List<GroupInfo>::Element *E = groups.front(); E; E = E->next())
+		node->add_to_group(E->get().name, E->get().persistent);
 
 	node->set_name(get_name());
 	p_new_parent->add_child(node);
@@ -2147,13 +2182,15 @@ void Node::_duplicate_signals(const Node *p_original, Node *p_copy) const {
 				continue;
 			}
 			NodePath ptarget = p_original->get_path_to(target);
-			Node *copytarget = p_copy->get_node(ptarget);
 
-			// Cannot find a path to the duplicate target, so it seems it's not part
-			// of the duplicated and not yet parented hierarchy, so at least try to connect
+			Node *copytarget = target;
+
+			// Atempt to find a path to the duplicate target, if it seems it's not part
+			// of the duplicated and not yet parented hierarchy then at least try to connect
 			// to the same target as the original
-			if (!copytarget)
-				copytarget = target;
+
+			if (p_copy->has_node(ptarget))
+				copytarget = p_copy->get_node(ptarget);
 
 			if (copy && copytarget) {
 				copy->connect(E->get().signal, copytarget, E->get().method, E->get().binds, E->get().flags);
@@ -2173,9 +2210,7 @@ Node *Node::duplicate_and_reown(const Map<Node *, Node *> &p_reown_map) const {
 	Node *node = NULL;
 
 	Object *obj = ClassDB::instance(get_class());
-	if (!obj) {
-		print_line("could not duplicate: " + String(get_class()));
-	}
+	ERR_EXPLAIN("Node: Could not duplicate: " + String(get_class()));
 	ERR_FAIL_COND_V(!obj, NULL);
 	node = Object::cast_to<Node>(obj);
 	if (!node)
@@ -2195,6 +2230,12 @@ Node *Node::duplicate_and_reown(const Map<Node *, Node *> &p_reown_map) const {
 		String name = E->get().name;
 		node->set(name, get(name));
 	}
+
+	List<GroupInfo> groups;
+	get_groups(&groups);
+
+	for (List<GroupInfo>::Element *E = groups.front(); E; E = E->next())
+		node->add_to_group(E->get().name, E->get().persistent);
 
 	for (int i = 0; i < get_child_count(); i++) {
 
@@ -2447,6 +2488,7 @@ void Node::_set_tree(SceneTree *p_tree) {
 		tree_changed_b->tree_changed();
 }
 
+#ifdef DEBUG_ENABLED
 static void _Node_debug_sn(Object *p_obj) {
 
 	Node *n = Object::cast_to<Node>(p_obj);
@@ -2466,8 +2508,9 @@ static void _Node_debug_sn(Object *p_obj) {
 		path = n->get_name();
 	else
 		path = String(p->get_name()) + "/" + p->get_path_to(n);
-	print_line(itos(p_obj->get_instance_id()) + "- Stray Node: " + path + " (Type: " + n->get_class() + ")");
+	print_line(itos(p_obj->get_instance_id()) + " - Stray Node: " + path + " (Type: " + n->get_class() + ")");
 }
+#endif // DEBUG_ENABLED
 
 void Node::_print_stray_nodes() {
 
@@ -2477,7 +2520,6 @@ void Node::_print_stray_nodes() {
 void Node::print_stray_nodes() {
 
 #ifdef DEBUG_ENABLED
-
 	ObjectDB::debug_objects(_Node_debug_sn);
 #endif
 }
@@ -2549,6 +2591,9 @@ void Node::clear_internal_tree_resource_paths() {
 
 String Node::get_configuration_warning() const {
 
+	if (get_script_instance() && get_script_instance()->has_method("_get_configuration_warning")) {
+		return get_script_instance()->call("_get_configuration_warning");
+	}
 	return String();
 }
 
@@ -2600,6 +2645,7 @@ void Node::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_node", "path"), &Node::get_node);
 	ClassDB::bind_method(D_METHOD("get_parent"), &Node::get_parent);
 	ClassDB::bind_method(D_METHOD("find_node", "mask", "recursive", "owned"), &Node::find_node, DEFVAL(true), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("find_parent", "mask"), &Node::find_parent);
 	ClassDB::bind_method(D_METHOD("has_node_and_resource", "path"), &Node::has_node_and_resource);
 	ClassDB::bind_method(D_METHOD("get_node_and_resource", "path"), &Node::_get_node_and_resource);
 
@@ -2757,6 +2803,7 @@ void Node::_bind_methods() {
 	BIND_VMETHOD(MethodInfo("_input", PropertyInfo(Variant::OBJECT, "event", PROPERTY_HINT_RESOURCE_TYPE, "InputEvent")));
 	BIND_VMETHOD(MethodInfo("_unhandled_input", PropertyInfo(Variant::OBJECT, "event", PROPERTY_HINT_RESOURCE_TYPE, "InputEvent")));
 	BIND_VMETHOD(MethodInfo("_unhandled_key_input", PropertyInfo(Variant::OBJECT, "event", PROPERTY_HINT_RESOURCE_TYPE, "InputEventKey")));
+	BIND_VMETHOD(MethodInfo(Variant::STRING, "_get_configuration_warning"));
 
 	//ClassDB::bind_method(D_METHOD("get_child",&Node::get_child,PH("index")));
 	//ClassDB::bind_method(D_METHOD("get_node",&Node::get_node,PH("path")));

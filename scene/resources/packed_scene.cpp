@@ -31,8 +31,9 @@
 #include "packed_scene.h"
 
 #include "core/core_string_names.h"
-#include "io/resource_loader.h"
-#include "project_settings.h"
+#include "core/engine.h"
+#include "core/io/resource_loader.h"
+#include "core/project_settings.h"
 #include "scene/2d/node_2d.h"
 #include "scene/3d/spatial.h"
 #include "scene/gui/control.h"
@@ -105,7 +106,6 @@ Node *SceneState::instance(GenEditState p_edit_state) const {
 
 		if (i == 0 && base_scene_idx >= 0) {
 			//scene inheritance on root node
-			//print_line("scene inherit");
 			Ref<PackedScene> sdata = props[base_scene_idx];
 			ERR_FAIL_COND_V(!sdata.is_valid(), NULL);
 			node = sdata->instance(p_edit_state == GEN_EDIT_STATE_DISABLED ? PackedScene::GEN_EDIT_STATE_DISABLED : PackedScene::GEN_EDIT_STATE_INSTANCE); //only main gets main edit state
@@ -116,7 +116,6 @@ Node *SceneState::instance(GenEditState p_edit_state) const {
 
 		} else if (n.instance >= 0) {
 			//instance a scene into this node
-			//print_line("instance");
 			if (n.instance & FLAG_INSTANCE_IS_PLACEHOLDER) {
 
 				String path = props[n.instance & FLAG_MASK];
@@ -140,7 +139,6 @@ Node *SceneState::instance(GenEditState p_edit_state) const {
 			}
 
 		} else if (n.type == TYPE_INSTANCED) {
-			//print_line("instanced");
 			//get the node from somewhere, it likely already exists from another instance
 			if (parent) {
 				node = parent->_get_child_by_name(snames[n.name]);
@@ -151,7 +149,6 @@ Node *SceneState::instance(GenEditState p_edit_state) const {
 #endif
 			}
 		} else if (ClassDB::is_class_enabled(snames[n.type])) {
-			//print_line("created");
 			//node belongs to this scene and must be created
 			Object *obj = ClassDB::instance(snames[n.type]);
 			if (!Object::cast_to<Node>(obj)) {
@@ -279,7 +276,12 @@ Node *SceneState::instance(GenEditState p_edit_state) const {
 						stray_instances.push_back(node); //can't be added, go to stray list
 					}
 				} else {
-					node->_set_name_nocheck(snames[n.name]);
+					if (Engine::get_singleton()->is_editor_hint()) {
+						//validate name if using editor, to avoid broken
+						node->set_name(snames[n.name]);
+					} else {
+						node->_set_name_nocheck(snames[n.name]);
+					}
 				}
 			}
 
@@ -389,7 +391,15 @@ Error SceneState::_parse_node(Node *p_owner, Node *p_node, int p_parent_idx, Map
 
 	nd.name = _nm_get_string(p_node->get_name(), name_map);
 	nd.instance = -1; //not instanced by default
-	nd.index = p_node->get_index();
+
+	//really convoluted condition, but it basically checks that index is only saved when part of an inherited scene OR the node parent is from the edited scene
+	if (p_owner->get_scene_inherited_state().is_null() && (p_node == p_owner || (p_node->get_owner() == p_owner && (p_node->get_parent() == p_owner || p_node->get_parent()->get_owner() == p_owner)))) {
+		//do not save index, because it belongs to saved scene and scene is not inherited
+		nd.index = -1;
+	} else {
+		//part of an inherited scene, or parent is from an instanced scene
+		nd.index = p_node->get_index();
+	}
 
 	// if this node is part of an instanced scene or sub-instanced scene
 	// we need to get the corresponding instance states.
@@ -477,15 +487,6 @@ Error SceneState::_parse_node(Node *p_owner, Node *p_node, int p_parent_idx, Map
 		if (E->get().usage & PROPERTY_USAGE_SCRIPT_DEFAULT_VALUE) {
 			isdefault = true; //is script default value
 		}
-		/*
-		if (nd.instance<0 && ((E->get().usage & PROPERTY_USAGE_STORE_IF_NONZERO) && value.is_zero()) || ((E->get().usage & PROPERTY_USAGE_STORE_IF_NONONE) && value.is_one())) {
-			continue;
-		}
-		*/
-
-		//print_line("PASSED!");
-		//print_line("at: "+String(p_node->get_name())+"::"+name+": -  nz: "+itos(E->get().usage&PROPERTY_USAGE_STORE_IF_NONZERO)+" no: "+itos(E->get().usage&PROPERTY_USAGE_STORE_IF_NONONE));
-		//print_line("value: "+String(value)+" is zero: "+itos(value.is_zero())+" is one" +itos(value.is_one()));
 
 		if (pack_state_stack.size()) {
 			// we are on part of an instanced subscene

@@ -54,12 +54,14 @@ class EditorPropertyText : public EditorProperty {
 
 	bool updating;
 	void _text_changed(const String &p_string);
+	void _text_entered(const String &p_string);
 
 protected:
 	static void _bind_methods();
 
 public:
 	virtual void update_property();
+	void set_placeholder(const String &p_string);
 	EditorPropertyText();
 };
 
@@ -105,13 +107,16 @@ class EditorPropertyPath : public EditorProperty {
 	bool folder;
 	bool global;
 	EditorFileDialog *dialog;
-	Button *path;
+	LineEdit *path;
+	Button *path_edit;
 
 	void _path_selected(const String &p_path);
 	void _path_pressed();
+	void _path_focus_exited();
 
 protected:
 	static void _bind_methods();
+	void _notification(int p_what);
 
 public:
 	void setup(const Vector<String> &p_extensions, bool p_folder, bool p_global);
@@ -260,7 +265,7 @@ protected:
 
 public:
 	virtual void update_property();
-	void setup(int p_min, int p_max, bool p_allow_greater, bool p_allow_lesser);
+	void setup(int p_min, int p_max, int p_step, bool p_allow_greater, bool p_allow_lesser);
 	EditorPropertyInteger();
 };
 
@@ -475,6 +480,7 @@ class EditorPropertyColor : public EditorProperty {
 	GDCLASS(EditorPropertyColor, EditorProperty)
 	ColorPickerButton *picker;
 	void _color_changed(const Color &p_color);
+	void _popup_closed();
 
 protected:
 	static void _bind_methods();
@@ -542,7 +548,7 @@ class EditorPropertyResource : public EditorProperty {
 
 	void _file_selected(const String &p_path);
 	void _menu_option(int p_which);
-	void _resource_preview(const String &p_path, const Ref<Texture> &p_preview, ObjectID p_obj);
+	void _resource_preview(const String &p_path, const Ref<Texture> &p_preview, const Ref<Texture> &p_small_preview, ObjectID p_obj);
 	void _resource_selected();
 	void _viewport_selected(const NodePath &p_path);
 

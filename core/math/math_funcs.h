@@ -31,20 +31,13 @@
 #ifndef MATH_FUNCS_H
 #define MATH_FUNCS_H
 
-#include "math_defs.h"
-#include "typedefs.h"
+#include "core/math/math_defs.h"
+#include "core/typedefs.h"
 
 #include "thirdparty/misc/pcg.h"
 
 #include <float.h>
 #include <math.h>
-
-#define Math_PI 3.14159265358979323846
-#define Math_TAU 6.28318530717958647692
-#define Math_SQRT12 0.7071067811865475244008443621048490
-#define Math_LN2 0.693147180559945309417
-#define Math_INF INFINITY
-#define Math_NAN NAN
 
 class Math {
 
@@ -53,7 +46,7 @@ class Math {
 public:
 	Math() {} // useless to instance
 
-	static const uint64_t RANDOM_MAX = 4294967295;
+	static const uint64_t RANDOM_MAX = 0xFFFFFFFF;
 
 	static _ALWAYS_INLINE_ double sin(double p_x) { return ::sin(p_x); }
 	static _ALWAYS_INLINE_ float sin(float p_x) { return ::sinf(p_x); }

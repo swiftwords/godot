@@ -31,9 +31,9 @@
 #ifndef PHYSICS2DSERVERWRAPMT_H
 #define PHYSICS2DSERVERWRAPMT_H
 
-#include "command_queue_mt.h"
-#include "os/thread.h"
-#include "project_settings.h"
+#include "core/command_queue_mt.h"
+#include "core/os/thread.h"
+#include "core/project_settings.h"
 #include "servers/physics_2d_server.h"
 
 #ifdef DEBUG_SYNC
@@ -210,9 +210,6 @@ public:
 
 	FUNC3(body_set_param, RID, BodyParameter, real_t);
 	FUNC2RC(real_t, body_get_param, RID, BodyParameter);
-
-	FUNC3(body_set_combine_mode, RID, BodyParameter, CombineMode);
-	FUNC2RC(CombineMode, body_get_combine_mode, RID, BodyParameter);
 
 	FUNC3(body_set_state, RID, BodyState, const Variant &);
 	FUNC2RC(Variant, body_get_state, RID, BodyState);

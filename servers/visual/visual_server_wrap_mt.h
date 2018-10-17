@@ -31,8 +31,8 @@
 #ifndef VISUAL_SERVER_WRAP_MT_H
 #define VISUAL_SERVER_WRAP_MT_H
 
-#include "command_queue_mt.h"
-#include "os/thread.h"
+#include "core/command_queue_mt.h"
+#include "core/os/thread.h"
 #include "servers/visual_server.h"
 
 /**
@@ -82,17 +82,19 @@ public:
 
 	/* EVENT QUEUING */
 	FUNCRID(texture)
-	FUNC5(texture_allocate, RID, int, int, Image::Format, uint32_t)
-	FUNC3(texture_set_data, RID, const Ref<Image> &, CubeMapSide)
-	FUNC10(texture_set_data_partial, RID, const Ref<Image> &, int, int, int, int, int, int, int, CubeMapSide)
-	FUNC2RC(Ref<Image>, texture_get_data, RID, CubeMapSide)
+	FUNC7(texture_allocate, RID, int, int, int, Image::Format, TextureType, uint32_t)
+	FUNC3(texture_set_data, RID, const Ref<Image> &, int)
+	FUNC10(texture_set_data_partial, RID, const Ref<Image> &, int, int, int, int, int, int, int, int)
+	FUNC2RC(Ref<Image>, texture_get_data, RID, int)
 	FUNC2(texture_set_flags, RID, uint32_t)
 	FUNC1RC(uint32_t, texture_get_flags, RID)
 	FUNC1RC(Image::Format, texture_get_format, RID)
+	FUNC1RC(TextureType, texture_get_type, RID)
 	FUNC1RC(uint32_t, texture_get_texid, RID)
 	FUNC1RC(uint32_t, texture_get_width, RID)
 	FUNC1RC(uint32_t, texture_get_height, RID)
-	FUNC3(texture_set_size_override, RID, int, int)
+	FUNC1RC(uint32_t, texture_get_depth, RID)
+	FUNC4(texture_set_size_override, RID, int, int, int)
 
 	FUNC3(texture_set_detect_3d_callback, RID, TextureDetectCallback, void *)
 	FUNC3(texture_set_detect_srgb_callback, RID, TextureDetectCallback, void *)
@@ -135,6 +137,7 @@ public:
 
 	FUNC3(material_set_param, RID, const StringName &, const Variant &)
 	FUNC2RC(Variant, material_get_param, RID, const StringName &)
+	FUNC2RC(Variant, material_get_param_default, RID, const StringName &)
 
 	FUNC2(material_set_render_priority, RID, int)
 	FUNC2(material_set_line_width, RID, float)
@@ -268,6 +271,7 @@ public:
 	FUNC2(reflection_probe_set_enable_box_projection, RID, bool)
 	FUNC2(reflection_probe_set_enable_shadows, RID, bool)
 	FUNC2(reflection_probe_set_cull_mask, RID, uint32_t)
+	FUNC2(reflection_probe_set_resolution, RID, int)
 
 	/* BAKED LIGHT API */
 
@@ -488,6 +492,8 @@ public:
 	FUNC2(canvas_item_set_visible, RID, bool)
 	FUNC2(canvas_item_set_light_mask, RID, int)
 
+	FUNC2(canvas_item_set_update_when_visible, RID, bool)
+
 	FUNC2(canvas_item_set_transform, RID, const Transform2D &)
 	FUNC2(canvas_item_set_clip, RID, bool)
 	FUNC2(canvas_item_set_distance_field_mode, RID, bool)
@@ -602,6 +608,10 @@ public:
 	FUNC1(call_set_use_vsync, bool)
 
 	static void set_use_vsync_callback(bool p_enable);
+
+	virtual bool is_low_end() const {
+		return visual_server->is_low_end();
+	}
 
 	VisualServerWrapMT(VisualServer *p_contained, bool p_create_thread);
 	~VisualServerWrapMT();

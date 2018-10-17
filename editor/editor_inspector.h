@@ -68,6 +68,7 @@ private:
 	bool can_revert;
 
 	bool use_folding;
+	bool draw_top_bg;
 
 	bool _might_be_in_instance();
 	bool _is_property_different(const Variant &p_current, const Variant &p_orig, int p_usage);
@@ -148,6 +149,8 @@ public:
 	virtual Control *make_custom_tooltip(const String &p_text) const;
 
 	String get_tooltip_text() const;
+
+	void set_draw_top_bg(bool p_draw) { draw_top_bg = p_draw; }
 
 	EditorProperty();
 };
@@ -345,9 +348,6 @@ public:
 
 	void set_use_filter(bool p_use);
 	void register_text_enter(Node *p_line_edit);
-
-	void set_subsection_selectable(bool p_selectable);
-	void set_property_selectable(bool p_selectable);
 
 	void set_use_folding(bool p_enable);
 	bool is_using_folding();

@@ -30,16 +30,17 @@
 
 #include "project_settings.h"
 
-#include "bind/core_bind.h"
-#include "core_string_names.h"
-#include "io/file_access_network.h"
-#include "io/file_access_pack.h"
-#include "io/marshalls.h"
-#include "os/dir_access.h"
-#include "os/file_access.h"
-#include "os/keyboard.h"
-#include "os/os.h"
-#include "variant_parser.h"
+#include "core/bind/core_bind.h"
+#include "core/core_string_names.h"
+#include "core/io/file_access_network.h"
+#include "core/io/file_access_pack.h"
+#include "core/io/marshalls.h"
+#include "core/os/dir_access.h"
+#include "core/os/file_access.h"
+#include "core/os/keyboard.h"
+#include "core/os/os.h"
+#include "core/variant_parser.h"
+
 #include <zlib.h>
 
 #define FORMAT_VERSION 4
@@ -59,7 +60,7 @@ String ProjectSettings::get_resource_path() const {
 String ProjectSettings::localize_path(const String &p_path) const {
 
 	if (resource_path == "")
-		return p_path; //not initialied yet
+		return p_path; //not initialized yet
 
 	if (p_path.begins_with("res://") || p_path.begins_with("user://") ||
 			(p_path.is_abs_path() && !p_path.begins_with(resource_path)))
@@ -191,7 +192,7 @@ bool ProjectSettings::_get(const StringName &p_name, Variant &r_ret) const {
 		name = feature_overrides[name];
 	}
 	if (!props.has(name)) {
-		print_line("WARNING: not found: " + String(name));
+		WARN_PRINTS("Property not found: " + String(name));
 		return false;
 	}
 	r_ret = props[name].variant;
@@ -953,7 +954,8 @@ ProjectSettings::ProjectSettings() {
 	disable_feature_overrides = false;
 	registering_order = true;
 
-	Array va;
+	Array events;
+	Dictionary action;
 	Ref<InputEventKey> key;
 	Ref<InputEventJoypadButton> joyb;
 
@@ -965,122 +967,162 @@ ProjectSettings::ProjectSettings() {
 	GLOBAL_DEF("application/config/use_custom_user_dir", false);
 	GLOBAL_DEF("application/config/custom_user_dir_name", "");
 
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_ENTER);
-	va.push_back(key);
+	events.push_back(key);
 	key.instance();
 	key->set_scancode(KEY_KP_ENTER);
-	va.push_back(key);
+	events.push_back(key);
 	key.instance();
 	key->set_scancode(KEY_SPACE);
-	va.push_back(key);
+	events.push_back(key);
 	joyb.instance();
 	joyb->set_button_index(JOY_BUTTON_0);
-	va.push_back(joyb);
-	GLOBAL_DEF("input/ui_accept", va);
+	events.push_back(joyb);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_accept", action);
 	input_presets.push_back("input/ui_accept");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_SPACE);
-	va.push_back(key);
+	events.push_back(key);
 	joyb.instance();
 	joyb->set_button_index(JOY_BUTTON_3);
-	va.push_back(joyb);
-	GLOBAL_DEF("input/ui_select", va);
+	events.push_back(joyb);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_select", action);
 	input_presets.push_back("input/ui_select");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_ESCAPE);
-	va.push_back(key);
+	events.push_back(key);
 	joyb.instance();
 	joyb->set_button_index(JOY_BUTTON_1);
-	va.push_back(joyb);
-	GLOBAL_DEF("input/ui_cancel", va);
+	events.push_back(joyb);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_cancel", action);
 	input_presets.push_back("input/ui_cancel");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_TAB);
-	va.push_back(key);
-	GLOBAL_DEF("input/ui_focus_next", va);
+	events.push_back(key);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_focus_next", action);
 	input_presets.push_back("input/ui_focus_next");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_TAB);
 	key->set_shift(true);
-	va.push_back(key);
-	GLOBAL_DEF("input/ui_focus_prev", va);
+	events.push_back(key);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_focus_prev", action);
 	input_presets.push_back("input/ui_focus_prev");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_LEFT);
-	va.push_back(key);
+	events.push_back(key);
 	joyb.instance();
 	joyb->set_button_index(JOY_DPAD_LEFT);
-	va.push_back(joyb);
-	GLOBAL_DEF("input/ui_left", va);
+	events.push_back(joyb);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_left", action);
 	input_presets.push_back("input/ui_left");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_RIGHT);
-	va.push_back(key);
+	events.push_back(key);
 	joyb.instance();
 	joyb->set_button_index(JOY_DPAD_RIGHT);
-	va.push_back(joyb);
-	GLOBAL_DEF("input/ui_right", va);
+	events.push_back(joyb);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_right", action);
 	input_presets.push_back("input/ui_right");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_UP);
-	va.push_back(key);
+	events.push_back(key);
 	joyb.instance();
 	joyb->set_button_index(JOY_DPAD_UP);
-	va.push_back(joyb);
-	GLOBAL_DEF("input/ui_up", va);
+	events.push_back(joyb);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_up", action);
 	input_presets.push_back("input/ui_up");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_DOWN);
-	va.push_back(key);
+	events.push_back(key);
 	joyb.instance();
 	joyb->set_button_index(JOY_DPAD_DOWN);
-	va.push_back(joyb);
-	GLOBAL_DEF("input/ui_down", va);
+	events.push_back(joyb);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_down", action);
 	input_presets.push_back("input/ui_down");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_PAGEUP);
-	va.push_back(key);
-	GLOBAL_DEF("input/ui_page_up", va);
+	events.push_back(key);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_page_up", action);
 	input_presets.push_back("input/ui_page_up");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_PAGEDOWN);
-	va.push_back(key);
-	GLOBAL_DEF("input/ui_page_down", va);
+	events.push_back(key);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_page_down", action);
 	input_presets.push_back("input/ui_page_down");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_HOME);
-	va.push_back(key);
-	GLOBAL_DEF("input/ui_home", va);
+	events.push_back(key);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_home", action);
 	input_presets.push_back("input/ui_home");
 
-	va = Array();
+	action = Dictionary();
+	action["deadzone"] = Variant(0.5f);
+	events = Array();
 	key.instance();
 	key->set_scancode(KEY_END);
-	va.push_back(key);
-	GLOBAL_DEF("input/ui_end", va);
+	events.push_back(key);
+	action["events"] = events;
+	GLOBAL_DEF("input/ui_end", action);
 	input_presets.push_back("input/ui_end");
 
 	//GLOBAL_DEF("display/window/handheld/orientation", "landscape");

@@ -30,10 +30,10 @@
 
 #include "code_editor.h"
 
+#include "core/os/keyboard.h"
 #include "editor/editor_scale.h"
 #include "editor_node.h"
 #include "editor_settings.h"
-#include "os/keyboard.h"
 #include "scene/gui/margin_container.h"
 #include "scene/gui/separator.h"
 #include "scene/resources/dynamic_font.h"
@@ -44,7 +44,7 @@ void GotoLineDialog::popup_find_line(TextEdit *p_edit) {
 
 	line->set_text(itos(text_editor->cursor_get_line()));
 	line->select_all();
-	popup_centered(Size2(180, 80));
+	popup_centered(Size2(180, 80) * EDSCALE);
 	line->grab_focus();
 }
 
@@ -65,16 +65,20 @@ void GotoLineDialog::ok_pressed() {
 GotoLineDialog::GotoLineDialog() {
 
 	set_title(TTR("Go to Line"));
+
+	VBoxContainer *vbc = memnew(VBoxContainer);
+	vbc->set_anchor_and_margin(MARGIN_LEFT, ANCHOR_BEGIN, 8 * EDSCALE);
+	vbc->set_anchor_and_margin(MARGIN_TOP, ANCHOR_BEGIN, 8 * EDSCALE);
+	vbc->set_anchor_and_margin(MARGIN_RIGHT, ANCHOR_END, -8 * EDSCALE);
+	vbc->set_anchor_and_margin(MARGIN_BOTTOM, ANCHOR_END, -8 * EDSCALE);
+	add_child(vbc);
+
 	Label *l = memnew(Label);
 	l->set_text(TTR("Line Number:"));
-	l->set_position(Point2(5, 5));
-	add_child(l);
+	vbc->add_child(l);
 
 	line = memnew(LineEdit);
-	line->set_anchor(MARGIN_RIGHT, ANCHOR_END);
-	line->set_begin(Point2(15, 22));
-	line->set_end(Point2(-15, 35));
-	add_child(line);
+	vbc->add_child(line);
 	register_text_enter(line);
 	text_editor = NULL;
 
@@ -374,7 +378,7 @@ void FindReplaceBar::_hide_bar() {
 void FindReplaceBar::_show_search() {
 
 	show();
-	search_text->grab_focus();
+	search_text->call_deferred("grab_focus");
 
 	if (text_edit->is_selection_active() && !selection_only->is_pressed()) {
 		search_text->set_text(text_edit->get_selection_text());
@@ -717,7 +721,6 @@ void CodeTextEditor::_complete_request() {
 	if (code_complete_func) {
 		code_complete_func(code_complete_ud, ctext, &entries, forced);
 	}
-	// print_line("COMPLETE: "+p_request);
 	if (entries.size() == 0)
 		return;
 	Vector<String> strs;
@@ -745,7 +748,7 @@ bool CodeTextEditor::_add_font_size(int p_delta) {
 	if (font.is_valid()) {
 		int new_size = CLAMP(font->get_size() + p_delta, 8 * EDSCALE, 96 * EDSCALE);
 
-		zoom_nb->set_text(itos(100 * new_size / 14) + "%");
+		zoom_nb->set_text(itos(100 * new_size / (14 * EDSCALE)) + "%");
 
 		if (new_size != font->get_size()) {
 			EditorSettings::get_singleton()->set("interface/editor/code_font_size", new_size / EDSCALE);
@@ -1036,6 +1039,8 @@ void CodeTextEditor::delete_lines() {
 		int to_line = text_editor->get_selection_to_line();
 		int from_line = text_editor->get_selection_from_line();
 		int count = Math::abs(to_line - from_line) + 1;
+
+		text_editor->cursor_set_line(to_line, false);
 		while (count) {
 			text_editor->set_line(text_editor->cursor_get_line(), "");
 			text_editor->backspace_at_cursor();
@@ -1246,6 +1251,29 @@ CodeTextEditor::CodeTextEditor() {
 
 	status_bar->add_child(memnew(Label)); //to keep the height if the other labels are not visible
 
+	warning_label = memnew(Label);
+	status_bar->add_child(warning_label);
+	warning_label->set_align(Label::ALIGN_RIGHT);
+	warning_label->set_valign(Label::VALIGN_CENTER);
+	warning_label->set_v_size_flags(SIZE_FILL);
+	warning_label->set_default_cursor_shape(CURSOR_POINTING_HAND);
+	warning_label->set_mouse_filter(MOUSE_FILTER_STOP);
+	warning_label->set_text(TTR("Warnings:"));
+	warning_label->add_font_override("font", EditorNode::get_singleton()->get_gui_base()->get_font("status_source", "EditorFonts"));
+
+	warning_count_label = memnew(Label);
+	status_bar->add_child(warning_count_label);
+	warning_count_label->set_valign(Label::VALIGN_CENTER);
+	warning_count_label->set_v_size_flags(SIZE_FILL);
+	warning_count_label->set_autowrap(true); // workaround to prevent resizing the label on each change, do not touch
+	warning_count_label->set_clip_text(true); // workaround to prevent resizing the label on each change, do not touch
+	warning_count_label->set_custom_minimum_size(Size2(40, 1) * EDSCALE);
+	warning_count_label->set_align(Label::ALIGN_RIGHT);
+	warning_count_label->set_default_cursor_shape(CURSOR_POINTING_HAND);
+	warning_count_label->set_mouse_filter(MOUSE_FILTER_STOP);
+	warning_count_label->add_font_override("font", EditorNode::get_singleton()->get_gui_base()->get_font("status_source", "EditorFonts"));
+	warning_count_label->set_text("0");
+
 	Label *zoom_txt = memnew(Label);
 	status_bar->add_child(zoom_txt);
 	zoom_txt->set_align(Label::ALIGN_RIGHT);
@@ -1318,7 +1346,7 @@ CodeTextEditor::CodeTextEditor() {
 
 	font_resize_val = 0;
 	font_size = EditorSettings::get_singleton()->get("interface/editor/code_font_size");
-	zoom_nb->set_text(itos(100 * font_size / 14) + "%");
+	zoom_nb->set_text(itos(100 * font_size / (14 * EDSCALE)) + "%");
 	font_resize_timer = memnew(Timer);
 	add_child(font_resize_timer);
 	font_resize_timer->set_one_shot(true);

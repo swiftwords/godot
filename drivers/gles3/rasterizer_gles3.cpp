@@ -30,10 +30,10 @@
 
 #include "rasterizer_gles3.h"
 
-#include "gl_context/context_gl.h"
-#include "os/os.h"
-#include "project_settings.h"
-#include <string.h>
+#include "core/os/os.h"
+#include "core/project_settings.h"
+#include "drivers/gl_context/context_gl.h"
+
 RasterizerStorage *RasterizerGLES3::get_storage() {
 
 	return storage;
@@ -73,6 +73,8 @@ RasterizerScene *RasterizerGLES3::get_scene() {
 #define _EXT_DEBUG_SEVERITY_LOW_ARB 0x9148
 #define _EXT_DEBUG_OUTPUT 0x92E0
 
+#ifdef GLAD_ENABLED
+// Restricting to GLAD as only used in initialize() with GLAD_GL_ARB_debug_output
 #if (defined WINDOWS_ENABLED) && !(defined UWP_ENABLED)
 #define GLAPIENTRY APIENTRY
 #else
@@ -123,6 +125,7 @@ static void GLAPIENTRY _gl_debug_print(GLenum source, GLenum type, GLuint id, GL
 
 	ERR_PRINTS(output);
 }
+#endif // GLAD_ENABLED
 
 typedef void (*DEBUGPROCARB)(GLenum source,
 		GLenum type,
@@ -134,30 +137,32 @@ typedef void (*DEBUGPROCARB)(GLenum source,
 
 typedef void (*DebugMessageCallbackARB)(DEBUGPROCARB callback, const void *userParam);
 
-void RasterizerGLES3::initialize() {
-
-	if (OS::get_singleton()->is_stdout_verbose()) {
-		print_line("Using GLES3 video driver");
-	}
+Error RasterizerGLES3::is_viable() {
 
 #ifdef GLAD_ENABLED
 	if (!gladLoadGL()) {
 		ERR_PRINT("Error initializing GLAD");
+		return ERR_UNAVAILABLE;
 	}
 
 // GLVersion seems to be used for both GL and GL ES, so we need different version checks for them
 #ifdef OPENGL_ENABLED // OpenGL 3.3 Core Profile required
-	if (GLVersion.major < 3 && GLVersion.minor < 3) {
+	if (GLVersion.major < 3 || (GLVersion.major == 3 && GLVersion.minor < 3)) {
 #else // OpenGL ES 3.0
 	if (GLVersion.major < 3) {
 #endif
-		ERR_PRINT("Your system's graphic drivers seem not to support OpenGL 3.3 / OpenGL ES 3.0, sorry :(\n"
-				  "Try a drivers update, buy a new GPU or try software rendering on Linux; Godot will now crash with a segmentation fault.");
-		OS::get_singleton()->alert("Your system's graphic drivers seem not to support OpenGL 3.3 / OpenGL ES 3.0, sorry :(\n"
-								   "Godot Engine will self-destruct as soon as you acknowledge this error message.",
-				"Fatal error: Insufficient OpenGL / GLES driver support");
+		return ERR_UNAVAILABLE;
 	}
 
+#endif // GLAD_ENABLED
+	return OK;
+}
+
+void RasterizerGLES3::initialize() {
+
+	print_verbose("Using GLES3 video driver");
+
+#ifdef GLAD_ENABLED
 	if (OS::get_singleton()->is_stdout_verbose()) {
 		if (GLAD_GL_ARB_debug_output) {
 			glEnable(_EXT_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
@@ -167,7 +172,6 @@ void RasterizerGLES3::initialize() {
 			print_line("OpenGL debugging not supported!");
 		}
 	}
-
 #endif // GLAD_ENABLED
 
 	/* // For debugging
@@ -225,7 +229,7 @@ void RasterizerGLES3::set_current_render_target(RID p_render_target) {
 	if (!p_render_target.is_valid() && storage->frame.current_rt && storage->frame.clear_request) {
 		//handle pending clear request, if the framebuffer was not cleared
 		glBindFramebuffer(GL_FRAMEBUFFER, storage->frame.current_rt->fbo);
-		print_line("unbind clear of: " + storage->frame.clear_request_color);
+
 		glClearColor(
 				storage->frame.clear_request_color.r,
 				storage->frame.clear_request_color.g,
@@ -290,7 +294,7 @@ void RasterizerGLES3::set_boot_image(const Ref<Image> &p_image, const Color &p_c
 	canvas->canvas_begin();
 
 	RID texture = storage->texture_create();
-	storage->texture_allocate(texture, p_image->get_width(), p_image->get_height(), p_image->get_format(), VS::TEXTURE_FLAG_FILTER);
+	storage->texture_allocate(texture, p_image->get_width(), p_image->get_height(), 0, p_image->get_format(), VS::TEXTURE_TYPE_2D, VS::TEXTURE_FLAG_FILTER);
 	storage->texture_set_data(texture, p_image);
 
 	Rect2 imgrect(0, 0, p_image->get_width(), p_image->get_height());
@@ -356,6 +360,26 @@ void RasterizerGLES3::blit_render_target_to_screen(RID p_render_target, const Re
 	glBindTexture(GL_TEXTURE_2D, 0);
 	canvas->canvas_end();
 #endif
+}
+
+void RasterizerGLES3::output_lens_distorted_to_screen(RID p_render_target, const Rect2 &p_screen_rect, float p_k1, float p_k2, const Vector2 &p_eye_center, float p_oversample) {
+	ERR_FAIL_COND(storage->frame.current_rt);
+
+	RasterizerStorageGLES3::RenderTarget *rt = storage->render_target_owner.getornull(p_render_target);
+	ERR_FAIL_COND(!rt);
+
+	glDisable(GL_BLEND);
+
+	// render to our framebuffer
+	glBindFramebuffer(GL_FRAMEBUFFER, RasterizerStorageGLES3::system_fbo);
+
+	// output our texture
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, rt->color);
+
+	canvas->draw_lens_distortion_rect(p_screen_rect, p_k1, p_k2, p_eye_center, p_oversample);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void RasterizerGLES3::end_frame(bool p_swap_buffers) {
